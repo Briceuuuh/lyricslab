@@ -5,7 +5,7 @@ import { mockSongs } from '@/data/mockData';
 // Query keys for cache management
 export const songKeys = {
   all: ['songs'] as const,
-  search: (params: { q?: string; language?: string; difficulty?: string }) =>
+  search: (params: { q?: string; language?: string; difficulty?: string; limit?: number }) =>
     [...songKeys.all, 'search', params] as const,
   detail: (id: string) => [...songKeys.all, 'detail', id] as const,
   popular: (limit?: number) => [...songKeys.all, 'popular', limit] as const,
@@ -15,6 +15,7 @@ interface UseSongsSearchParams {
   query?: string;
   language?: string;
   difficulty?: string;
+  limit?: number;
   enabled?: boolean;
 }
 
@@ -22,9 +23,9 @@ interface UseSongsSearchParams {
  * Hook to search for songs
  * Uses real API (/search/songs) and falls back to mock data if unavailable
  */
-export function useSongsSearch({ query, language, difficulty, enabled = true }: UseSongsSearchParams = {}) {
+export function useSongsSearch({ query, language, difficulty, limit = 20, enabled = true }: UseSongsSearchParams = {}) {
   return useQuery({
-    queryKey: songKeys.search({ q: query, language, difficulty }),
+    queryKey: songKeys.search({ q: query, language, difficulty, limit }),
     queryFn: async () => {
       // If no query, return mock data for browsing
       if (!query || query.trim() === '') {
@@ -33,11 +34,11 @@ export function useSongsSearch({ query, language, difficulty, enabled = true }: 
           const matchesLanguage = !language || song.language === language;
           const matchesDifficulty = !difficulty || song.difficulty === difficulty;
           return matchesLanguage && matchesDifficulty;
-        });
+        }).slice(0, limit);
       }
 
       try {
-        const result = await searchApi.searchSongs(query);
+        const result = await searchApi.searchSongs(query, limit);
         
         if (result.success && result.results.length > 0) {
           // Convert API songs to app format with full metadata
@@ -67,7 +68,7 @@ export function useSongsSearch({ query, language, difficulty, enabled = true }: 
           const matchesLanguage = !language || song.language === language;
           const matchesDifficulty = !difficulty || song.difficulty === difficulty;
           return matchesQuery && matchesLanguage && matchesDifficulty;
-        });
+        }).slice(0, limit);
       } catch (error) {
         console.warn('[useSongsSearch] API unavailable, using mock data:', error);
         return mockSongs.filter((song) => {
@@ -77,7 +78,7 @@ export function useSongsSearch({ query, language, difficulty, enabled = true }: 
           const matchesLanguage = !language || song.language === language;
           const matchesDifficulty = !difficulty || song.difficulty === difficulty;
           return matchesQuery && matchesLanguage && matchesDifficulty;
-        });
+        }).slice(0, limit);
       }
     },
     enabled,
