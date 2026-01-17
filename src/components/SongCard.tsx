@@ -1,11 +1,19 @@
 import { motion } from "framer-motion";
 import { Clock, Music2 } from "lucide-react";
-import { Song, difficultyColors } from "@/data/mockData";
+import { difficultyColors } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 interface SongCardProps {
-  song: Song;
+  song: {
+    id: string;
+    title: string;
+    artist: string;
+    languageLabel: string;
+    difficulty: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+    albumArt: string;
+    estimatedLearningTime: number;
+  };
   onClick?: () => void;
   index?: number;
 }

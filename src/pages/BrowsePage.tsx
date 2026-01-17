@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { SongCard } from "@/components/SongCard";
-import { mockSongs, languages, difficultyColors } from "@/data/mockData";
+import { languages, difficultyColors } from "@/data/mockData";
 import { useUser } from "@/context/UserContext";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Filter, Music } from "lucide-react";
+import { Filter, Music, Loader2 } from "lucide-react";
+import { useSongsSearch } from "@/hooks/useSongs";
+import { useDebounce } from "@/hooks/useDebounce";
 
 const difficulties = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
@@ -17,27 +19,25 @@ const BrowsePage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
 
-  const filteredSongs = useMemo(() => {
-    return mockSongs.filter(song => {
-      const matchesSearch = searchQuery === "" ||
-        song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        song.artist.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesDifficulty = !selectedDifficulty || song.difficulty === selectedDifficulty;
-      
-      return matchesSearch && matchesDifficulty;
-    });
-  }, [searchQuery, selectedDifficulty]);
+  // Debounce search query to avoid excessive API calls
+  const debouncedQuery = useDebounce(searchQuery, 300);
 
+  // Fetch songs from API with filters
+  const { data: songs = [], isLoading, isError } = useSongsSearch({
+    query: debouncedQuery || undefined,
+    difficulty: selectedDifficulty || undefined,
+  });
+
+  // Group songs by language
   const songsByLanguage = useMemo(() => {
-    const grouped: Record<string, typeof mockSongs> = {};
-    filteredSongs.forEach(song => {
+    const grouped: Record<string, typeof songs> = {};
+    songs.forEach(song => {
       const lang = song.languageLabel;
       if (!grouped[lang]) grouped[lang] = [];
       grouped[lang].push(song);
     });
     return grouped;
-  }, [filteredSongs]);
+  }, [songs]);
 
   return (
     <MainLayout onSearch={setSearchQuery}>
@@ -97,10 +97,33 @@ const BrowsePage = () => {
           })}
         </motion.div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center justify-center py-12"
+          >
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            <span className="ml-3 text-muted-foreground">Searching songs...</span>
+          </motion.div>
+        )}
+
+        {/* Error State */}
+        {isError && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="bg-destructive/10 rounded-xl p-6 text-center"
+          >
+            <p className="text-destructive">Failed to load songs. Using offline data.</p>
+          </motion.div>
+        )}
+
         {/* Songs by Language */}
-        {Object.keys(songsByLanguage).length > 0 ? (
+        {!isLoading && Object.keys(songsByLanguage).length > 0 ? (
           <div className="space-y-8">
-            {Object.entries(songsByLanguage).map(([lang, songs], sectionIndex) => {
+            {Object.entries(songsByLanguage).map(([lang, langSongs], sectionIndex) => {
               const langData = languages.find(l => l.label === lang);
               
               return (
@@ -115,12 +138,12 @@ const BrowsePage = () => {
                     <span className="text-2xl">{langData?.flag}</span>
                     {lang}
                     <Badge variant="secondary" className="ml-2">
-                      {songs.length} songs
+                      {langSongs.length} songs
                     </Badge>
                   </h2>
                   
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {songs.map((song, index) => (
+                    {langSongs.map((song, index) => (
                       <SongCard
                         key={song.id}
                         song={song}
@@ -133,7 +156,7 @@ const BrowsePage = () => {
               );
             })}
           </div>
-        ) : (
+        ) : !isLoading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

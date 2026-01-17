@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { WordTooltip } from "@/components/WordTooltip";
-import { mockSongs, difficultyColors, Word } from "@/data/mockData";
+import { difficultyColors, Word } from "@/data/mockData";
 import { useUser } from "@/context/UserContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,13 +16,15 @@ import {
   BookOpen, 
   Target,
   Info,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useSong } from "@/hooks/useSongs";
 
 const SongLearningPage = () => {
   const { songId } = useParams();
@@ -31,9 +33,21 @@ const SongLearningPage = () => {
   const [selectedWord, setSelectedWord] = useState<{ word: Word; position: { x: number; y: number } } | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const song = useMemo(() => mockSongs.find(s => s.id === songId), [songId]);
+  // Fetch song from API
+  const { data: song, isLoading, isError } = useSong(songId);
 
-  if (!song) {
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+          <p className="text-muted-foreground">Loading song...</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (isError || !song) {
     return (
       <MainLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">

@@ -8,25 +8,36 @@ import { WeeklyChart } from "@/components/WeeklyChart";
 import { AchievementBadge } from "@/components/AchievementBadge";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { useUser } from "@/context/UserContext";
-import { mockSongs, mockChallenges, achievements } from "@/data/mockData";
-import { BookOpen, Flame, Trophy, Target, ArrowRight, Music } from "lucide-react";
+import { achievements } from "@/data/mockData";
+import { BookOpen, Flame, Trophy, Target, ArrowRight, Music, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePopularSongs } from "@/hooks/useSongs";
+import { useChallenges } from "@/hooks/useChallenges";
+import { useDebounce } from "@/hooks/useDebounce";
 
 const HomePage = () => {
   const navigate = useNavigate();
   const { progress, selectedLanguage } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredSongs = mockSongs.filter(song => {
-    const matchesLanguage = song.language === selectedLanguage;
-    const matchesSearch = searchQuery === "" || 
-      song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      song.artist.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesLanguage && matchesSearch;
+  const debouncedQuery = useDebounce(searchQuery, 300);
+
+  // Fetch popular songs for selected language
+  const { data: allSongs = [], isLoading: songsLoading } = usePopularSongs(selectedLanguage);
+
+  // Fetch challenges
+  const { data: allChallenges = [], isLoading: challengesLoading } = useChallenges();
+
+  // Filter songs by search query
+  const filteredSongs = allSongs.filter(song => {
+    const matchesSearch = debouncedQuery === "" || 
+      song.title.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
+      song.artist.toLowerCase().includes(debouncedQuery.toLowerCase());
+    return matchesSearch;
   });
 
   const recommendedSongs = filteredSongs.slice(0, 4);
-  const recentChallenges = mockChallenges.slice(0, 2);
+  const recentChallenges = allChallenges.slice(0, 2);
 
   return (
     <MainLayout onSearch={setSearchQuery}>
@@ -73,7 +84,7 @@ const HomePage = () => {
           />
           <ProgressCard
             title="Challenges"
-            value={mockChallenges.length}
+            value={allChallenges.length}
             subtitle="Available"
             icon={Target}
             variant="default"
@@ -103,7 +114,12 @@ const HomePage = () => {
                 </Button>
               </div>
 
-              {recommendedSongs.length > 0 ? (
+              {songsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                  <span className="ml-2 text-muted-foreground">Loading songs...</span>
+                </div>
+              ) : recommendedSongs.length > 0 ? (
                 <div className="grid sm:grid-cols-2 gap-4">
                   {recommendedSongs.map((song, index) => (
                     <SongCard
@@ -142,16 +158,22 @@ const HomePage = () => {
                 </Button>
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
-                {recentChallenges.map((challenge, index) => (
-                  <ChallengeCard
-                    key={challenge.id}
-                    challenge={challenge}
-                    index={index}
-                    onClick={() => navigate(`/challenges?id=${challenge.id}`)}
-                  />
-                ))}
-              </div>
+              {challengesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {recentChallenges.map((challenge, index) => (
+                    <ChallengeCard
+                      key={challenge.id}
+                      challenge={challenge}
+                      index={index}
+                      onClick={() => navigate(`/challenges?id=${challenge.id}`)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
