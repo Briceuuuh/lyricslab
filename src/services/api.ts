@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Configure API base URL - change this to your backend URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Configure API base URL - ton backend Flask sur port 5001
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -34,6 +34,33 @@ api.interceptors.response.use(
 );
 
 // =============== TYPES ===============
+
+export interface ApiSong {
+  id: number;
+  title: string;
+  artist: string;
+  album?: string;
+  type: 'song';
+}
+
+export interface ApiArtist {
+  id: number;
+  name: string;
+  type: 'artist';
+}
+
+export interface SearchResponse {
+  success: boolean;
+  query: string;
+  artists: {
+    count: number;
+    results: ApiArtist[];
+  };
+  songs: {
+    count: number;
+    results: ApiSong[];
+  };
+}
 
 export interface Song {
   id: string;
@@ -120,21 +147,93 @@ export interface ChallengeAttemptResult {
   feedback: { index: number; correct: boolean; expected?: string }[];
 }
 
-// =============== SONG API ===============
+// =============== HEALTH API ===============
 
-export const songApi = {
+export const healthApi = {
   /**
-   * Search for songs
-   * GET /api/songs/search?q=query&language=en&difficulty=B1
+   * Check API health
+   * GET /api/health
    */
-  search: async (params: { q?: string; language?: string; difficulty?: string; limit?: number }) => {
-    const response = await api.get<{ success: boolean; count: number; songs: Song[] }>('/songs/search', { params });
+  check: async () => {
+    const response = await api.get<{
+      status: string;
+      timestamp: string;
+      service: string;
+      version: string;
+    }>('/api/health');
+    return response.data;
+  },
+};
+
+// =============== SEARCH API (EXISTANT) ===============
+
+export const searchApi = {
+  /**
+   * Search for both artists and songs
+   * GET /search?q=query&limit=20
+   */
+  searchAll: async (query: string, limit = 20) => {
+    const response = await api.get<SearchResponse>('/search', {
+      params: { q: query, limit },
+    });
     return response.data;
   },
 
   /**
+   * Search for songs only
+   * GET /search/songs?q=query&limit=20
+   */
+  searchSongs: async (query: string, limit = 20) => {
+    const response = await api.get<{
+      success: boolean;
+      query: string;
+      count: number;
+      results: ApiSong[];
+    }>('/search/songs', {
+      params: { q: query, limit },
+    });
+    return response.data;
+  },
+
+  /**
+   * Search for artists only
+   * GET /search/artists?q=query&limit=20
+   */
+  searchArtists: async (query: string, limit = 20) => {
+    const response = await api.get<{
+      success: boolean;
+      query: string;
+      count: number;
+      results: ApiArtist[];
+    }>('/search/artists', {
+      params: { q: query, limit },
+    });
+    return response.data;
+  },
+};
+
+// =============== SONG API (À IMPLÉMENTER CÔTÉ BACKEND) ===============
+
+export const songApi = {
+  /**
+   * Search for songs (utilise searchApi en interne)
+   * ✅ DISPONIBLE via /search/songs
+   */
+  search: async (params: { q?: string; language?: string; difficulty?: string; limit?: number }) => {
+    if (!params.q) {
+      return { success: true, count: 0, songs: [] };
+    }
+    const response = await searchApi.searchSongs(params.q, params.limit || 20);
+    return {
+      success: response.success,
+      count: response.count,
+      songs: response.results,
+    };
+  },
+
+  /**
    * Get song by ID with lyrics and analysis
-   * GET /api/songs/:songId
+   * ❌ À IMPLÉMENTER: GET /songs/:songId
    */
   getById: async (songId: string) => {
     const response = await api.get<{ success: boolean; song: Song }>(`/songs/${songId}`);
@@ -142,8 +241,17 @@ export const songApi = {
   },
 
   /**
+   * Get lyrics for a song
+   * ❌ À IMPLÉMENTER: GET /songs/:songId/lyrics
+   */
+  getLyrics: async (songId: string) => {
+    const response = await api.get<{ success: boolean; lyrics: string; trackId: number }>(`/songs/${songId}/lyrics`);
+    return response.data;
+  },
+
+  /**
    * Get popular songs for a language
-   * GET /api/songs/popular?language=es
+   * ❌ À IMPLÉMENTER: GET /songs/popular?language=es
    */
   getPopular: async (language?: string) => {
     const response = await api.get<{ success: boolean; songs: Song[] }>('/songs/popular', {
@@ -153,12 +261,12 @@ export const songApi = {
   },
 };
 
-// =============== CHALLENGE API ===============
+// =============== CHALLENGE API (À IMPLÉMENTER) ===============
 
 export const challengeApi = {
   /**
    * Generate fill-the-blank challenge for a song
-   * POST /api/challenges/:songId/fill-blank
+   * ❌ À IMPLÉMENTER: POST /challenges/:songId/fill-blank
    */
   generateFillBlank: async (songId: string, numBlanks = 5) => {
     const response = await api.post<{ success: boolean; challenges: ChallengeQuestion[] }>(
@@ -170,7 +278,7 @@ export const challengeApi = {
 
   /**
    * Generate multiple choice challenge for a song
-   * POST /api/challenges/:songId/multiple-choice
+   * ❌ À IMPLÉMENTER: POST /challenges/:songId/multiple-choice
    */
   generateMultipleChoice: async (songId: string, numQuestions = 5) => {
     const response = await api.post<{ success: boolean; questions: ChallengeQuestion[] }>(
@@ -182,7 +290,7 @@ export const challengeApi = {
 
   /**
    * Submit challenge attempt
-   * POST /api/challenges/:challengeId/attempt
+   * ❌ À IMPLÉMENTER: POST /challenges/:challengeId/attempt
    */
   submitAttempt: async (challengeId: string, answers: string[]) => {
     const response = await api.post<ChallengeAttemptResult>(
@@ -194,7 +302,7 @@ export const challengeApi = {
 
   /**
    * Get all available challenges
-   * GET /api/challenges
+   * ❌ À IMPLÉMENTER: GET /challenges
    */
   getAll: async () => {
     const response = await api.get<{ success: boolean; challenges: Challenge[] }>('/challenges');
@@ -203,7 +311,7 @@ export const challengeApi = {
 
   /**
    * Get challenges for a specific song
-   * GET /api/challenges/song/:songId
+   * ❌ À IMPLÉMENTER: GET /challenges/song/:songId
    */
   getBySong: async (songId: string) => {
     const response = await api.get<{ success: boolean; challenges: Challenge[] }>(`/challenges/song/${songId}`);
@@ -211,12 +319,12 @@ export const challengeApi = {
   },
 };
 
-// =============== USER API ===============
+// =============== USER API (À IMPLÉMENTER) ===============
 
 export const userApi = {
   /**
    * Get user progress
-   * GET /api/user/progress
+   * ❌ À IMPLÉMENTER: GET /user/progress
    */
   getProgress: async () => {
     const response = await api.get<{ success: boolean; progress: UserProgress }>('/user/progress');
@@ -225,7 +333,7 @@ export const userApi = {
 
   /**
    * Update user progress
-   * PUT /api/user/progress
+   * ❌ À IMPLÉMENTER: PUT /user/progress
    */
   updateProgress: async (updates: Partial<UserProgress>) => {
     const response = await api.put<{ success: boolean; progress: UserProgress }>('/user/progress', updates);
@@ -234,7 +342,7 @@ export const userApi = {
 
   /**
    * Mark word as learned
-   * POST /api/user/words/learned
+   * ❌ À IMPLÉMENTER: POST /user/words/learned
    */
   markWordLearned: async (word: string, language: string, songId?: string) => {
     const response = await api.post<{ success: boolean; message: string; wordsLearnedCount: number }>(
@@ -246,7 +354,7 @@ export const userApi = {
 
   /**
    * Get learned words
-   * GET /api/user/words?language=es
+   * ❌ À IMPLÉMENTER: GET /user/words?language=es
    */
   getLearnedWords: async (language?: string) => {
     const response = await api.get<{ success: boolean; words: string[]; total: number }>('/user/words', {
@@ -257,7 +365,7 @@ export const userApi = {
 
   /**
    * Update user settings
-   * POST /api/user/settings
+   * ❌ À IMPLÉMENTER: POST /user/settings
    */
   updateSettings: async (settings: { preferredLanguages?: string[]; difficulty?: string }) => {
     const response = await api.post<{ success: boolean; settings: typeof settings }>('/user/settings', settings);
@@ -265,12 +373,12 @@ export const userApi = {
   },
 };
 
-// =============== NLP API ===============
+// =============== NLP API (À IMPLÉMENTER) ===============
 
 export const nlpApi = {
   /**
    * Get word explanation
-   * POST /api/nlp/explain
+   * ❌ À IMPLÉMENTER: POST /nlp/explain
    */
   explainWords: async (words: string[], language = 'en') => {
     const response = await api.post<{
@@ -288,7 +396,7 @@ export const nlpApi = {
 
   /**
    * Calculate difficulty for lyrics
-   * POST /api/nlp/difficulty
+   * ❌ À IMPLÉMENTER: POST /nlp/difficulty
    */
   calculateDifficulty: async (lyrics: string, language = 'en') => {
     const response = await api.post<{
