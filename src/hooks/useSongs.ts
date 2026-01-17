@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { searchApi, songApi, ApiSong } from '@/services/api';
-import { mockSongs, Song } from '@/data/mockData';
+import { searchApi, songApi, convertApiSongToSong, convertApiArtistToArtist, Song, Artist } from '@/services/api';
+import { mockSongs } from '@/data/mockData';
 
 // Query keys for cache management
 export const songKeys = {
@@ -17,23 +17,6 @@ interface UseSongsSearchParams {
   difficulty?: string;
   enabled?: boolean;
 }
-
-// Helper to convert API song to app Song format
-const convertApiSongToSong = (apiSong: ApiSong): Song => ({
-  id: String(apiSong.id),
-  title: apiSong.title,
-  artist: apiSong.artist,
-  language: 'en', // Default - will be enriched when backend supports it
-  languageLabel: 'English',
-  difficulty: 'B1' as const, // Default - will be enriched when backend supports it
-  albumArt: `https://picsum.photos/seed/${apiSong.id}/300/300`,
-  lyrics: [],
-  wordFrequency: {},
-  slangWords: [],
-  estimatedLearningTime: 8,
-  totalWords: 0,
-  uniqueWords: 0,
-});
 
 /**
  * Hook to search for songs
@@ -57,10 +40,13 @@ export function useSongsSearch({ query, language, difficulty, enabled = true }: 
         const result = await searchApi.searchSongs(query);
         
         if (result.success && result.results.length > 0) {
-          // Convert API songs to app format
+          // Convert API songs to app format with full metadata
           let songs = result.results.map(convertApiSongToSong);
           
-          // Apply local filters (these will work better when backend supports them)
+          // Filter only songs that have lyrics available
+          songs = songs.filter(s => s.hasLyrics !== false);
+          
+          // Apply local filters
           if (language) {
             songs = songs.filter(s => s.language === language);
           }
@@ -68,6 +54,7 @@ export function useSongsSearch({ query, language, difficulty, enabled = true }: 
             songs = songs.filter(s => s.difficulty === difficulty);
           }
           
+          console.log(`[useSongsSearch] Found ${songs.length} songs with API`);
           return songs;
         }
         
@@ -83,7 +70,6 @@ export function useSongsSearch({ query, language, difficulty, enabled = true }: 
         });
       } catch (error) {
         console.warn('[useSongsSearch] API unavailable, using mock data:', error);
-        // Fallback to mock data
         return mockSongs.filter((song) => {
           const matchesQuery = !query ||
             song.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -115,7 +101,6 @@ export function useSong(songId: string | undefined) {
         return result.song;
       } catch (error) {
         console.warn('[useSong] API unavailable, using mock data:', error);
-        // Fallback to mock data
         const song = mockSongs.find((s) => s.id === songId);
         if (!song) throw new Error('Song not found');
         return song;
@@ -140,38 +125,71 @@ export function usePopularSongs(language?: string) {
         return result.songs;
       } catch (error) {
         console.warn('[usePopularSongs] API unavailable, using mock data:', error);
-        // Fallback to mock data
         return mockSongs
           .filter((s) => !language || s.language === language)
           .slice(0, 10);
       }
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 }
 
+export interface SearchAllResult {
+  artists: Artist[];
+  songs: Song[];
+}
+
 /**
  * Hook to search all (songs + artists)
- * Uses the /search endpoint
+ * Uses the /search endpoint with full metadata
  */
 export function useSearchAll(query: string, enabled = true) {
   return useQuery({
     queryKey: ['search', 'all', query],
-    queryFn: async () => {
+    queryFn: async (): Promise<SearchAllResult> => {
       if (!query || query.trim() === '') {
         return { artists: [], songs: [] };
       }
       
       try {
         const result = await searchApi.searchAll(query);
-        return {
-          artists: result.artists.results,
-          songs: result.songs.results.map(convertApiSongToSong),
-        };
+        
+        // Convert with full metadata
+        const artists = result.artists.results.map(convertApiArtistToArtist);
+        const songs = result.songs.results.map(convertApiSongToSong);
+        
+        console.log(`[useSearchAll] Found ${artists.length} artists, ${songs.length} songs`);
+        
+        return { artists, songs };
       } catch (error) {
         console.warn('[useSearchAll] API unavailable:', error);
         return { artists: [], songs: [] };
+      }
+    },
+    enabled: enabled && !!query,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+/**
+ * Hook to search artists only
+ */
+export function useArtistsSearch(query: string, enabled = true) {
+  return useQuery({
+    queryKey: ['search', 'artists', query],
+    queryFn: async (): Promise<Artist[]> => {
+      if (!query || query.trim() === '') {
+        return [];
+      }
+      
+      try {
+        const result = await searchApi.searchArtists(query);
+        return result.results.map(convertApiArtistToArtist);
+      } catch (error) {
+        console.warn('[useArtistsSearch] API unavailable:', error);
+        return [];
       }
     },
     enabled: enabled && !!query,

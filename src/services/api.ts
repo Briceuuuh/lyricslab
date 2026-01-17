@@ -33,19 +33,115 @@ api.interceptors.response.use(
   }
 );
 
-// =============== TYPES ===============
+// =============== TYPES API (correspondant à ton backend) ===============
+
+export interface ApiGenre {
+  id: number;
+  name: string;
+  parent_id: number;
+  vanity?: string;
+}
+
+export interface ApiAlbumCoverart {
+  '100x100'?: string;
+  '350x350'?: string;
+  '500x500'?: string;
+  '800x800'?: string;
+}
 
 export interface ApiSong {
+  // Basic info
   id: number;
   title: string;
   artist: string;
+  artist_id?: number;
   album?: string;
+  album_id?: number;
+  
+  // IDs and identifiers
+  isrc?: string;
+  mbid?: string;
+  spotify_id?: string;
+  commontrack_id?: number;
+  lyrics_id?: number;
+  subtitle_id?: number;
+  
+  // Metadata
+  duration?: number; // in seconds
+  rating?: number;
+  release_date?: string;
+  updated_time?: string;
+  num_favourite?: number;
+  
+  // Features
+  has_lyrics?: boolean;
+  has_lyrics_crowd?: boolean;
+  has_subtitles?: boolean;
+  has_richsync?: boolean;
+  has_track_structure?: boolean;
+  instrumental?: boolean;
+  explicit?: boolean;
+  restricted?: boolean;
+  
+  // Genre information
+  primary_genres?: ApiGenre[];
+  secondary_genres?: ApiGenre[];
+  
+  // Album artwork (multiple sizes)
+  album_coverart?: ApiAlbumCoverart;
+  
+  // URLs
+  share_url?: string;
+  edit_url?: string;
+  vanity_id?: string;
+  
   type: 'song';
 }
 
 export interface ApiArtist {
+  // Basic info
   id: number;
   name: string;
+  vanity_id?: string;
+  fq_id?: string;
+  
+  // IDs
+  mbid?: string;
+  spotify_id?: string;
+  
+  // Metadata
+  country?: string;
+  rating?: number;
+  crowd_favourites?: number;
+  comment?: string;
+  updated_time?: string;
+  
+  // Dates
+  begin_date?: string;
+  begin_date_year?: string;
+  end_date?: string;
+  end_date_year?: string;
+  
+  // Genres
+  primary_genres?: ApiGenre[];
+  secondary_genres?: ApiGenre[];
+  
+  // URLs
+  twitter_url?: string;
+  website_url?: string;
+  instagram_url?: string;
+  tiktok_url?: string;
+  facebook_url?: string;
+  youtube_url?: string;
+  share_url?: string;
+  
+  // Status
+  restricted?: boolean;
+  managed?: boolean;
+  
+  // Aliases
+  aliases?: { artist_alias: string }[];
+  
   type: 'artist';
 }
 
@@ -62,14 +158,21 @@ export interface SearchResponse {
   };
 }
 
+// =============== TYPES FRONTEND ===============
+
 export interface Song {
   id: string;
   title: string;
   artist: string;
+  artistId?: number;
+  album?: string;
+  albumId?: number;
   language: string;
   languageLabel: string;
   difficulty: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
   albumArt: string;
+  albumArtSmall?: string;
+  albumArtLarge?: string;
   lyrics: LyricLine[];
   wordFrequency: Record<string, number>;
   slangWords: SlangWord[];
@@ -78,6 +181,32 @@ export interface Song {
   uniqueWords: number;
   difficultyScore?: number;
   difficultyReasoning?: DifficultyReasoning;
+  // New fields from API
+  genres: string[];
+  duration?: number;
+  hasLyrics?: boolean;
+  spotifyId?: string;
+  explicit?: boolean;
+  rating?: number;
+  releaseDate?: string;
+  shareUrl?: string;
+}
+
+export interface Artist {
+  id: string;
+  name: string;
+  country?: string;
+  genres: string[];
+  rating?: number;
+  spotifyId?: string;
+  socialLinks: {
+    twitter?: string;
+    instagram?: string;
+    facebook?: string;
+    youtube?: string;
+    website?: string;
+  };
+  imageUrl?: string;
 }
 
 export interface LyricLine {
@@ -147,13 +276,96 @@ export interface ChallengeAttemptResult {
   feedback: { index: number; correct: boolean; expected?: string }[];
 }
 
+// =============== HELPERS ===============
+
+/**
+ * Get the best available album art URL
+ */
+export function getBestAlbumArt(coverart?: ApiAlbumCoverart, size: 'small' | 'medium' | 'large' = 'medium'): string {
+  if (!coverart) return '';
+  
+  if (size === 'large') {
+    return coverart['800x800'] || coverart['500x500'] || coverart['350x350'] || coverart['100x100'] || '';
+  }
+  if (size === 'small') {
+    return coverart['100x100'] || coverart['350x350'] || coverart['500x500'] || coverart['800x800'] || '';
+  }
+  // medium
+  return coverart['350x350'] || coverart['500x500'] || coverart['100x100'] || coverart['800x800'] || '';
+}
+
+/**
+ * Extract genre names from API genres
+ */
+export function extractGenreNames(genres?: ApiGenre[]): string[] {
+  if (!genres || genres.length === 0) return [];
+  return genres.map(g => g.name);
+}
+
+/**
+ * Convert API song to frontend Song format
+ */
+export function convertApiSongToSong(apiSong: ApiSong): Song {
+  const albumArt = getBestAlbumArt(apiSong.album_coverart, 'medium');
+  const genres = extractGenreNames(apiSong.primary_genres);
+  
+  return {
+    id: String(apiSong.id),
+    title: apiSong.title,
+    artist: apiSong.artist,
+    artistId: apiSong.artist_id,
+    album: apiSong.album,
+    albumId: apiSong.album_id,
+    language: 'en', // Default - sera enrichi par le backend NLP
+    languageLabel: 'English',
+    difficulty: 'B1', // Default - sera calculé par le backend NLP
+    albumArt: albumArt || `https://picsum.photos/seed/${apiSong.id}/300/300`,
+    albumArtSmall: getBestAlbumArt(apiSong.album_coverart, 'small'),
+    albumArtLarge: getBestAlbumArt(apiSong.album_coverart, 'large'),
+    lyrics: [],
+    wordFrequency: {},
+    slangWords: [],
+    estimatedLearningTime: apiSong.duration ? Math.ceil(apiSong.duration / 60) + 3 : 8,
+    totalWords: 0,
+    uniqueWords: 0,
+    // New fields
+    genres,
+    duration: apiSong.duration,
+    hasLyrics: apiSong.has_lyrics,
+    spotifyId: apiSong.spotify_id,
+    explicit: apiSong.explicit,
+    rating: apiSong.rating,
+    releaseDate: apiSong.release_date,
+    shareUrl: apiSong.share_url,
+  };
+}
+
+/**
+ * Convert API artist to frontend Artist format
+ */
+export function convertApiArtistToArtist(apiArtist: ApiArtist): Artist {
+  const genres = extractGenreNames(apiArtist.primary_genres);
+  
+  return {
+    id: String(apiArtist.id),
+    name: apiArtist.name,
+    country: apiArtist.country,
+    genres,
+    rating: apiArtist.rating,
+    spotifyId: apiArtist.spotify_id || undefined,
+    socialLinks: {
+      twitter: apiArtist.twitter_url || undefined,
+      instagram: apiArtist.instagram_url || undefined,
+      facebook: apiArtist.facebook_url || undefined,
+      youtube: apiArtist.youtube_url || undefined,
+      website: apiArtist.website_url || undefined,
+    },
+  };
+}
+
 // =============== HEALTH API ===============
 
 export const healthApi = {
-  /**
-   * Check API health
-   * GET /api/health
-   */
   check: async () => {
     const response = await api.get<{
       status: string;
@@ -165,7 +377,7 @@ export const healthApi = {
   },
 };
 
-// =============== SEARCH API (EXISTANT) ===============
+// =============== SEARCH API ===============
 
 export const searchApi = {
   /**
@@ -216,7 +428,7 @@ export const searchApi = {
 
 export const songApi = {
   /**
-   * Search for songs (utilise searchApi en interne)
+   * Search for songs
    * ✅ DISPONIBLE via /search/songs
    */
   search: async (params: { q?: string; language?: string; difficulty?: string; limit?: number }) => {
@@ -264,10 +476,6 @@ export const songApi = {
 // =============== CHALLENGE API (À IMPLÉMENTER) ===============
 
 export const challengeApi = {
-  /**
-   * Generate fill-the-blank challenge for a song
-   * ❌ À IMPLÉMENTER: POST /challenges/:songId/fill-blank
-   */
   generateFillBlank: async (songId: string, numBlanks = 5) => {
     const response = await api.post<{ success: boolean; challenges: ChallengeQuestion[] }>(
       `/challenges/${songId}/fill-blank`,
@@ -276,10 +484,6 @@ export const challengeApi = {
     return response.data;
   },
 
-  /**
-   * Generate multiple choice challenge for a song
-   * ❌ À IMPLÉMENTER: POST /challenges/:songId/multiple-choice
-   */
   generateMultipleChoice: async (songId: string, numQuestions = 5) => {
     const response = await api.post<{ success: boolean; questions: ChallengeQuestion[] }>(
       `/challenges/${songId}/multiple-choice`,
@@ -288,10 +492,6 @@ export const challengeApi = {
     return response.data;
   },
 
-  /**
-   * Submit challenge attempt
-   * ❌ À IMPLÉMENTER: POST /challenges/:challengeId/attempt
-   */
   submitAttempt: async (challengeId: string, answers: string[]) => {
     const response = await api.post<ChallengeAttemptResult>(
       `/challenges/${challengeId}/attempt`,
@@ -300,19 +500,11 @@ export const challengeApi = {
     return response.data;
   },
 
-  /**
-   * Get all available challenges
-   * ❌ À IMPLÉMENTER: GET /challenges
-   */
   getAll: async () => {
     const response = await api.get<{ success: boolean; challenges: Challenge[] }>('/challenges');
     return response.data;
   },
 
-  /**
-   * Get challenges for a specific song
-   * ❌ À IMPLÉMENTER: GET /challenges/song/:songId
-   */
   getBySong: async (songId: string) => {
     const response = await api.get<{ success: boolean; challenges: Challenge[] }>(`/challenges/song/${songId}`);
     return response.data;
@@ -322,28 +514,16 @@ export const challengeApi = {
 // =============== USER API (À IMPLÉMENTER) ===============
 
 export const userApi = {
-  /**
-   * Get user progress
-   * ❌ À IMPLÉMENTER: GET /user/progress
-   */
   getProgress: async () => {
     const response = await api.get<{ success: boolean; progress: UserProgress }>('/user/progress');
     return response.data;
   },
 
-  /**
-   * Update user progress
-   * ❌ À IMPLÉMENTER: PUT /user/progress
-   */
   updateProgress: async (updates: Partial<UserProgress>) => {
     const response = await api.put<{ success: boolean; progress: UserProgress }>('/user/progress', updates);
     return response.data;
   },
 
-  /**
-   * Mark word as learned
-   * ❌ À IMPLÉMENTER: POST /user/words/learned
-   */
   markWordLearned: async (word: string, language: string, songId?: string) => {
     const response = await api.post<{ success: boolean; message: string; wordsLearnedCount: number }>(
       '/user/words/learned',
@@ -352,10 +532,6 @@ export const userApi = {
     return response.data;
   },
 
-  /**
-   * Get learned words
-   * ❌ À IMPLÉMENTER: GET /user/words?language=es
-   */
   getLearnedWords: async (language?: string) => {
     const response = await api.get<{ success: boolean; words: string[]; total: number }>('/user/words', {
       params: language ? { language } : undefined,
@@ -363,10 +539,6 @@ export const userApi = {
     return response.data;
   },
 
-  /**
-   * Update user settings
-   * ❌ À IMPLÉMENTER: POST /user/settings
-   */
   updateSettings: async (settings: { preferredLanguages?: string[]; difficulty?: string }) => {
     const response = await api.post<{ success: boolean; settings: typeof settings }>('/user/settings', settings);
     return response.data;
@@ -376,10 +548,6 @@ export const userApi = {
 // =============== NLP API (À IMPLÉMENTER) ===============
 
 export const nlpApi = {
-  /**
-   * Get word explanation
-   * ❌ À IMPLÉMENTER: POST /nlp/explain
-   */
   explainWords: async (words: string[], language = 'en') => {
     const response = await api.post<{
       success: boolean;
@@ -394,10 +562,6 @@ export const nlpApi = {
     return response.data;
   },
 
-  /**
-   * Calculate difficulty for lyrics
-   * ❌ À IMPLÉMENTER: POST /nlp/difficulty
-   */
   calculateDifficulty: async (lyrics: string, language = 'en') => {
     const response = await api.post<{
       success: boolean;
