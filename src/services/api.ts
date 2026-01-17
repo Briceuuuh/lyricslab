@@ -462,12 +462,16 @@ export const songApi = {
   },
 
   /**
-   * Get popular songs for a language
-   * ❌ À IMPLÉMENTER: GET /songs/popular?language=es
+   * Get popular songs
+   * ✅ DISPONIBLE: GET /songs/popular?limit=20
    */
-  getPopular: async (language?: string) => {
-    const response = await api.get<{ success: boolean; songs: Song[] }>('/songs/popular', {
-      params: language ? { language } : undefined,
+  getPopular: async (limit = 20) => {
+    const response = await api.get<{
+      success: boolean;
+      count: number;
+      results: ApiSong[];
+    }>('/songs/popular', {
+      params: { limit },
     });
     return response.data;
   },

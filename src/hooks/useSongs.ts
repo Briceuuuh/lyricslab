@@ -8,7 +8,7 @@ export const songKeys = {
   search: (params: { q?: string; language?: string; difficulty?: string }) =>
     [...songKeys.all, 'search', params] as const,
   detail: (id: string) => [...songKeys.all, 'detail', id] as const,
-  popular: (language?: string) => [...songKeys.all, 'popular', language] as const,
+  popular: (limit?: number) => [...songKeys.all, 'popular', limit] as const,
 };
 
 interface UseSongsSearchParams {
@@ -114,20 +114,24 @@ export function useSong(songId: string | undefined) {
 
 /**
  * Hook to get popular songs
- * Falls back to mock data if API is unavailable
+ * Uses /songs/popular endpoint and falls back to mock data if unavailable
  */
-export function usePopularSongs(language?: string) {
+export function usePopularSongs(limit = 20) {
   return useQuery({
-    queryKey: songKeys.popular(language),
+    queryKey: [...songKeys.all, 'popular', limit],
     queryFn: async () => {
       try {
-        const result = await songApi.getPopular(language);
-        return result.songs;
+        const result = await songApi.getPopular(limit);
+        if (result.success && result.results.length > 0) {
+          const songs = result.results.map(convertApiSongToSong);
+          console.log(`[usePopularSongs] Found ${songs.length} popular songs`);
+          return songs;
+        }
+        console.warn('[usePopularSongs] No results, using mock data');
+        return mockSongs.slice(0, limit);
       } catch (error) {
         console.warn('[usePopularSongs] API unavailable, using mock data:', error);
-        return mockSongs
-          .filter((s) => !language || s.language === language)
-          .slice(0, 10);
+        return mockSongs.slice(0, limit);
       }
     },
     staleTime: 5 * 60 * 1000,

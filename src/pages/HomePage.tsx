@@ -22,8 +22,8 @@ const HomePage = () => {
 
   const debouncedQuery = useDebounce(searchQuery, 300);
 
-  // Fetch popular songs for selected language
-  const { data: allSongs = [], isLoading: songsLoading } = usePopularSongs(selectedLanguage);
+  // Fetch popular songs
+  const { data: allSongs = [], isLoading: songsLoading } = usePopularSongs(20);
 
   // Fetch challenges
   const { data: allChallenges = [], isLoading: challengesLoading } = useChallenges();

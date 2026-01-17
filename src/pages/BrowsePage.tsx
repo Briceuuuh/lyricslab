@@ -8,7 +8,7 @@ import { useUser } from "@/context/UserContext";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Filter, Music, Loader2 } from "lucide-react";
-import { useSongsSearch } from "@/hooks/useSongs";
+import { useSongsSearch, usePopularSongs } from "@/hooks/useSongs";
 import { useDebounce } from "@/hooks/useDebounce";
 
 const difficulties = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
@@ -22,22 +22,36 @@ const BrowsePage = () => {
   // Debounce search query to avoid excessive API calls
   const debouncedQuery = useDebounce(searchQuery, 300);
 
-  // Fetch songs from API with filters
-  const { data: songs = [], isLoading, isError } = useSongsSearch({
+  // Fetch popular songs on initial load (when no search query)
+  const { data: popularSongs = [], isLoading: popularLoading } = usePopularSongs(20);
+
+  // Fetch songs from API with filters when searching
+  const { data: searchResults = [], isLoading: searchLoading, isError } = useSongsSearch({
     query: debouncedQuery || undefined,
     difficulty: selectedDifficulty || undefined,
+    enabled: !!debouncedQuery, // Only search when there's a query
   });
+
+  // Use popular songs when no search, search results when searching
+  const songs = debouncedQuery ? searchResults : popularSongs;
+  const isLoading = debouncedQuery ? searchLoading : popularLoading;
+
+  // Filter by difficulty if selected (for popular songs)
+  const filteredSongs = useMemo(() => {
+    if (!selectedDifficulty) return songs;
+    return songs.filter(song => song.difficulty === selectedDifficulty);
+  }, [songs, selectedDifficulty]);
 
   // Group songs by language
   const songsByLanguage = useMemo(() => {
-    const grouped: Record<string, typeof songs> = {};
-    songs.forEach(song => {
+    const grouped: Record<string, typeof filteredSongs> = {};
+    filteredSongs.forEach(song => {
       const lang = song.languageLabel;
       if (!grouped[lang]) grouped[lang] = [];
       grouped[lang].push(song);
     });
     return grouped;
-  }, [songs]);
+  }, [filteredSongs]);
 
   return (
     <MainLayout onSearch={setSearchQuery}>
