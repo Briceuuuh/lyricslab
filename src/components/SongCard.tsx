@@ -9,17 +9,35 @@ interface SongCardProps {
     id: string;
     title: string;
     artist: string;
-    languageLabel: string;
+    languageLabel?: string;
+    language?: string;
     difficulty: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
     albumArt: string;
-    estimatedLearningTime: number;
+    estimatedLearningTime?: number;
+    genres?: string[];
+    duration?: number;
+    explicit?: boolean;
   };
   onClick?: () => void;
   index?: number;
 }
 
+// Language labels mapping
+const languageLabels: Record<string, string> = {
+  en: 'English',
+  es: 'Español',
+  fr: 'Français',
+  de: 'Deutsch',
+  it: 'Italiano',
+  pt: 'Português',
+  ja: '日本語',
+  ko: '한국어',
+};
+
 export function SongCard({ song, onClick, index = 0 }: SongCardProps) {
   const diffColor = difficultyColors[song.difficulty];
+  const displayLanguage = song.languageLabel || languageLabels[song.language || 'en'] || 'English';
+  const displayTime = song.estimatedLearningTime || (song.duration ? Math.ceil(song.duration / 60) + 3 : 8);
 
   return (
     <motion.div
@@ -36,6 +54,10 @@ export function SongCard({ song, onClick, index = 0 }: SongCardProps) {
           src={song.albumArt}
           alt={song.title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          onError={(e) => {
+            // Fallback image if album art fails to load
+            e.currentTarget.src = `https://picsum.photos/seed/${song.id}/300/300`;
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         
@@ -57,6 +79,16 @@ export function SongCard({ song, onClick, index = 0 }: SongCardProps) {
         >
           {song.difficulty}
         </Badge>
+
+        {/* Explicit Badge */}
+        {song.explicit && (
+          <Badge 
+            variant="secondary"
+            className="absolute top-3 left-3 text-xs"
+          >
+            E
+          </Badge>
+        )}
       </div>
 
       {/* Content */}
@@ -66,13 +98,20 @@ export function SongCard({ song, onClick, index = 0 }: SongCardProps) {
         </h3>
         <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
         
+        {/* Genres */}
+        {song.genres && song.genres.length > 0 && (
+          <p className="text-xs text-muted-foreground truncate">
+            {song.genres.slice(0, 2).join(' • ')}
+          </p>
+        )}
+        
         <div className="flex items-center justify-between pt-2">
           <Badge variant="secondary" className="text-xs">
-            {song.languageLabel}
+            {displayLanguage}
           </Badge>
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="w-3 h-3" />
-            {song.estimatedLearningTime} min
+            {displayTime} min
           </span>
         </div>
       </div>
