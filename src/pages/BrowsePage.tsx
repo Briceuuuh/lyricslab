@@ -10,25 +10,35 @@ import { cn } from "@/lib/utils";
 import { Filter, Music, Loader2 } from "lucide-react";
 import { useSongsSearch, usePopularSongs } from "@/hooks/useSongs";
 import { useDebounce } from "@/hooks/useDebounce";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const difficulties = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const LIMIT_OPTIONS = [20, 100, 150] as const;
 
 const BrowsePage = () => {
   const navigate = useNavigate();
   const { selectedLanguage } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
+  const [limit, setLimit] = useState<number>(20);
 
   // Debounce search query to avoid excessive API calls
   const debouncedQuery = useDebounce(searchQuery, 300);
 
   // Fetch popular songs on initial load (when no search query)
-  const { data: popularSongs = [], isLoading: popularLoading } = usePopularSongs(20);
+  const { data: popularSongs = [], isLoading: popularLoading } = usePopularSongs(limit);
 
   // Fetch songs from API with filters when searching
   const { data: searchResults = [], isLoading: searchLoading, isError } = useSongsSearch({
     query: debouncedQuery || undefined,
     difficulty: selectedDifficulty || undefined,
+    limit,
     enabled: !!debouncedQuery, // Only search when there's a query
   });
 
@@ -109,6 +119,26 @@ const BrowsePage = () => {
               </Badge>
             );
           })}
+
+          {/* Limit selector */}
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-sm text-muted-foreground">Max:</span>
+            <Select
+              value={String(limit)}
+              onValueChange={(value) => setLimit(Number(value))}
+            >
+              <SelectTrigger className="w-20 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LIMIT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={String(opt)}>
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </motion.div>
 
         {/* Loading State */}
