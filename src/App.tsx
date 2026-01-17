@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { UserProvider } from "@/context/UserContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import HomePage from "./pages/HomePage";
 import BrowsePage from "./pages/BrowsePage";
 import SongLearningPage from "./pages/SongLearningPage";
@@ -25,17 +26,17 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<HomePage />} />
               <Route path="/auth" element={<AuthPage />} />
-              <Route path="/browse" element={<BrowsePage />} />
-              <Route path="/song/:songId" element={<SongLearningPage />} />
-              <Route path="/learning" element={<BrowsePage />} />
-              <Route path="/completed" element={<BrowsePage />} />
-              <Route path="/progress" element={<ProgressPage />} />
-              <Route path="/challenges" element={<ChallengesPage />} />
-              <Route path="/vocabulary" element={<VocabularyPage />} />
-              <Route path="/friends" element={<ProgressPage />} />
-              <Route path="/settings" element={<ProgressPage />} />
+              <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+              <Route path="/browse" element={<ProtectedRoute><BrowsePage /></ProtectedRoute>} />
+              <Route path="/song/:songId" element={<ProtectedRoute><SongLearningPage /></ProtectedRoute>} />
+              <Route path="/learning" element={<ProtectedRoute><BrowsePage /></ProtectedRoute>} />
+              <Route path="/completed" element={<ProtectedRoute><BrowsePage /></ProtectedRoute>} />
+              <Route path="/progress" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
+              <Route path="/challenges" element={<ProtectedRoute><ChallengesPage /></ProtectedRoute>} />
+              <Route path="/vocabulary" element={<ProtectedRoute><VocabularyPage /></ProtectedRoute>} />
+              <Route path="/friends" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
