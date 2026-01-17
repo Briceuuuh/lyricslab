@@ -1,15 +1,13 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { SongCard } from "@/components/SongCard";
-import { mockSongs, languages, difficultyColors, Song } from "@/data/mockData";
+import { mockSongs, languages, difficultyColors } from "@/data/mockData";
 import { useUser } from "@/context/UserContext";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Filter, Music, Loader2 } from "lucide-react";
-import { useSearchSongs } from "@/hooks/useApi";
-import { useDebounce } from "@/hooks/useDebounce";
+import { Filter, Music } from "lucide-react";
 
 const difficulties = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
@@ -18,24 +16,8 @@ const BrowsePage = () => {
   const { selectedLanguage } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
-  
-  const debouncedSearch = useDebounce(searchQuery, 300);
-  
-  // Use API for search when query exists
-  const { data: apiSongs, isLoading, isError } = useSearchSongs(
-    debouncedSearch,
-    selectedLanguage,
-    selectedDifficulty || undefined
-  );
 
-  // Use API results if available, otherwise fall back to mock data
   const filteredSongs = useMemo(() => {
-    // If we have search results from API, use them
-    if (debouncedSearch && apiSongs && apiSongs.length > 0) {
-      return apiSongs;
-    }
-    
-    // Otherwise filter mock data locally
     return mockSongs.filter(song => {
       const matchesSearch = searchQuery === "" ||
         song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -45,10 +27,10 @@ const BrowsePage = () => {
       
       return matchesSearch && matchesDifficulty;
     });
-  }, [searchQuery, debouncedSearch, selectedDifficulty, apiSongs]);
+  }, [searchQuery, selectedDifficulty]);
 
   const songsByLanguage = useMemo(() => {
-    const grouped: Record<string, Song[]> = {};
+    const grouped: Record<string, typeof mockSongs> = {};
     filteredSongs.forEach(song => {
       const lang = song.languageLabel;
       if (!grouped[lang]) grouped[lang] = [];
@@ -115,20 +97,8 @@ const BrowsePage = () => {
           })}
         </motion.div>
 
-        {/* Loading State */}
-        {isLoading && debouncedSearch && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center justify-center py-12"
-          >
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="ml-3 text-muted-foreground">Searching songs...</span>
-          </motion.div>
-        )}
-
         {/* Songs by Language */}
-        {!isLoading && Object.keys(songsByLanguage).length > 0 ? (
+        {Object.keys(songsByLanguage).length > 0 ? (
           <div className="space-y-8">
             {Object.entries(songsByLanguage).map(([lang, songs], sectionIndex) => {
               const langData = languages.find(l => l.label === lang);

@@ -16,15 +16,13 @@ import {
   BookOpen, 
   Target,
   Info,
-  ChevronRight,
-  Loader2
+  ChevronRight
 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useSong } from "@/hooks/useApi";
 
 const SongLearningPage = () => {
   const { songId } = useParams();
@@ -33,23 +31,7 @@ const SongLearningPage = () => {
   const [selectedWord, setSelectedWord] = useState<{ word: Word; position: { x: number; y: number } } | null>(null);
   const [saved, setSaved] = useState(false);
 
-  // Try to fetch from API first
-  const { data: apiSong, isLoading, isError } = useSong(songId);
-  
-  // Fall back to mock data if API fails or is loading
-  const mockSong = useMemo(() => mockSongs.find(s => s.id === songId), [songId]);
-  const song = apiSong || mockSong;
-
-  if (isLoading) {
-    return (
-      <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">Loading song...</p>
-        </div>
-      </MainLayout>
-    );
-  }
+  const song = useMemo(() => mockSongs.find(s => s.id === songId), [songId]);
 
   if (!song) {
     return (
